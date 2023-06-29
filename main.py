@@ -1,10 +1,22 @@
 from fastapi import FastAPI, Body
 from fastapi .responses import HTMLResponse
+from pydantic import BaseModel
+from typing import Optional
+
+
 app = FastAPI()
 
 #Documentacion con swagger
 app.title = "Mi app con fastapi"
 app.version = "0.0.1"
+
+class Movie(BaseModel):
+    id: Optional[int] = None
+    title: str
+    overview: str
+    year: int
+    rating: float
+    category: str
 
 
 movies = [
@@ -55,28 +67,21 @@ def get_movies_by_category(category: str):
 
 #Ponerle el body hace que tome los parametros de un body que se le manda, y no los pide individualmente
 @app.post("/movies", tags = ["movies"])
-def create_movie(id: int = Body(), title: str = Body(), overview: str = Body(), year: int = Body(), rating: float = Body(), category: str = Body()):
-    new_movie = {
-		"id": id,
-		"title": title,
-		"overview": overview,
-		"year": year,
-		"rating": rating,
-		"category": category
-	}
-    movies.append(new_movie)
+def create_movie(movie: Movie):
+    #Verificar que usar dict sea la mejor opcion
+    movies.append(movie.dict())
     return movies
     
 
 @app.put("/movies/{id}", tags = ["movies"])
-def update_movie(id: int, title: str = Body(), overview: str = Body(), year: int = Body(), rating: float = Body(), category: str = Body()):
+def update_movie(id: int, movie: Movie):
     for item in movies:
         if item["id"] ==id:
-            item["title"] = title
-            item["overview"] = overview
-            item["year"] = year
-            item["rating"] = rating
-            item["category"] = category
+            item["title"] = movie.title
+            item["overview"] = movie.overview
+            item["year"] = movie.year
+            item["rating"] = movie.rating
+            item["category"] = movie.category
             return movies
         
 	
