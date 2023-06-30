@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Body, Path, Query
 from fastapi .responses import HTMLResponse
 from pydantic import BaseModel,Field
-from typing import Optional
+from typing import Optional, List
 
 
 app = FastAPI()
@@ -14,7 +14,7 @@ class Movie(BaseModel):
     id: Optional[int] = None
     #Validacion de parametros de ruta
     title: str = Field(min_length=5, max_length=15)
-    overview: str = Field(min_length=15, max_length=50)
+    overview: str = Field(min_length=15, max_length=100)
     year: int = Field(le=2022)
     rating:float = Field(default=10, ge=1, le=10)
     category:str = Field(default='Categoría', min_length=5, max_length=15)
@@ -56,13 +56,13 @@ def message():
     return HTMLResponse("<h1> Hello world</h1>")
 
 
-@app.get("/movies", tags = ["movies"])
-def get_movies():
+@app.get("/movies", tags = ["movies"], response_model=List[Movie], status_code=200)
+def get_movies() -> List[Movie]:
     return movies
 
 #parametros de ruta, usando {id}, podemos especificar que ruta y parametros queremos para poder acceder a cierto url
-@app.get("/movies/{id}", tags = ["movies"])
-def get_movie(id: int = Path(ge=1, le=2000)):
+@app.get("/movies/{id}", tags = ["movies"], response_model= Movie)
+def get_movie(id: int = Path(ge=1, le=2000)) -> Movie:
     for item in movies:
         if item["id"]== id:
             return item
@@ -70,9 +70,9 @@ def get_movie(id: int = Path(ge=1, le=2000)):
 
 #cuando no se especifica en la ruta, usamos lo que sonn parametros query
 #estos parametros son los que salen con ?en el navegador
-@app.get("/movies/", tags = ["movies"])
+@app.get("/movies/", tags = ["movies"], response_model=List[Movie])
 #Validacion de parametros query
-def get_movies_by_category(category: str = Query(min_length=5, max_length=15)):
+def get_movies_by_category(category: str = Query(min_length=5, max_length=15)) -> List[Movie]:
     # Utilizar una comprensión de lista para verificar la condición en cada diccionario
     resultados = resultados = [d for d in movies if 'category' in d and d['category'] == category]
     
@@ -80,13 +80,13 @@ def get_movies_by_category(category: str = Query(min_length=5, max_length=15)):
     return resultados
 
 #Ponerle el body hace que tome los parametros de un body que se le manda, y no los pide individualmente
-@app.post("/movies", tags = ["movies"])
-def create_movie(movie: Movie):
+@app.post("/movies", tags = ["movies"], response_model= dict, status_code=201)
+def create_movie(movie: Movie) ->dict:
     #Verificar que usar dict sea la mejor opcion
     movies.append(movie.dict())
-    return movies
+    return {"message": "Se ha registrado la pelicula"}
     
-
+#En estos dos faltaria poner dict como retorno, pero vamos dejandolo asi a ver que pasa
 @app.put("/movies/{id}", tags = ["movies"])
 def update_movie(id: int, movie: Movie):
     for item in movies:
