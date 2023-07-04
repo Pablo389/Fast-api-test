@@ -4,13 +4,19 @@ from pydantic import BaseModel,Field
 from typing import Optional, List
 from jwt_manager import create_token, validate_token
 from fastapi.security import HTTPBearer
-
+from config.database import Session, engine, Base
+from models.movie import Movie as MovieModel
+from fastapi.encoders import jsonable_encoder
 
 app = FastAPI()
 
 #Documentacion con swagger
 app.title = "Mi app con fastapi"
 app.version = "0.0.1"
+
+
+Base.metadata.create_all(bind=engine)
+
 
 class JWTBearer(HTTPBearer):
     async def __call__(self, request: Request):
@@ -85,50 +91,61 @@ def login(user: User):
 
 @app.get("/movies", tags = ["movies"], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBearer())])
 def get_movies() -> List[Movie]:
-    return JSONResponse(status_code=200, content=movies)
+    db = Session()
+    result = db.query(MovieModel).all()
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
 #parametros de ruta, usando {id}, podemos especificar que ruta y parametros queremos para poder acceder a cierto url
 @app.get("/movies/{id}", tags = ["movies"], response_model= Movie)
 def get_movie(id: int = Path(ge=1, le=2000)) -> Movie:
-    for item in movies:
-        if item["id"]== id:
-            return item
-    return []
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.id == id).first()
+    if not result:
+        return JSONResponse(status_code=404, content={'message': "No encontrado"})
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
 #cuando no se especifica en la ruta, usamos lo que sonn parametros query
 #estos parametros son los que salen con ?en el navegador
 @app.get("/movies/", tags = ["movies"], response_model=List[Movie])
 #Validacion de parametros query
 def get_movies_by_category(category: str = Query(min_length=5, max_length=15)) -> List[Movie]:
-    # Utilizar una comprensión de lista para verificar la condición en cada diccionario
-    resultados = resultados = [d for d in movies if 'category' in d and d['category'] == category]
-    
-    # Retornar la lista de resultados
-    return resultados
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.category == category).all()
+    if not result:
+      return JSONResponse(status_code=404, content={"message": "Movie not found"})
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
 #Ponerle el body hace que tome los parametros de un body que se le manda, y no los pide individualmente
 @app.post("/movies", tags = ["movies"], response_model= dict, status_code=201)
 def create_movie(movie: Movie) ->dict:
-    #Verificar que usar dict sea la mejor opcion
-    movies.append(movie.dict())
-    return {"message": "Se ha registrado la pelicula"}
+    db = Session()
+    new_movie = MovieModel(**movie.dict())
+    db.add(new_movie)
+    db.commit()
+    return JSONResponse(status_code=201, content={"message": "Se ha registrado la película"})
     
 #En estos dos faltaria poner dict como retorno, pero vamos dejandolo asi a ver que pasa
 @app.put("/movies/{id}", tags = ["movies"])
 def update_movie(id: int, movie: Movie):
-    for item in movies:
-        if item["id"] ==id:
-            item["title"] = movie.title
-            item["overview"] = movie.overview
-            item["year"] = movie.year
-            item["rating"] = movie.rating
-            item["category"] = movie.category
-            return movies
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.id == id).first()
+    if not result:
+        return JSONResponse(status_code=404, content={'message': "No encontrado"})
+    result.title = movie.title
+    result.overview = movie.overview
+    result.year = movie.year
+    result.rating = movie.rating
+    result.category = movie.category
+    db.commit()
+    return JSONResponse(status_code=200, content={"message": "Se ha modificado la película"})
         
 	
 @app.delete("/movies/{id}", tags = ["movies"])
 def delete_movie(id: int):
-    for item in movies:
-        if item["id"] ==id:
-            movies.remove(item)
-            return movies
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.id == id).first()
+    if not result:
+        return JSONResponse(status_code=404, content={'message': "No encontrado"})
+    db.delete(result)
+    db.commit()
+    return JSONResponse(status_code=200, content={"message": "Se ha eliminado la película"})
