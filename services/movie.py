@@ -25,7 +25,7 @@ class MovieService():
         return
 
     def update_movie(self, id: int, data: Movie):
-        movie = self.db.query(MovieModel).filter(MovieModel.id == id).first()
+        movie = self.get_movie(id)
         movie.title = data.title
         movie.overview = data.overview
         movie.year = data.year
