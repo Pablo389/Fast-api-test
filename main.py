@@ -7,24 +7,20 @@ from fastapi.security import HTTPBearer
 from config.database import Session, engine, Base
 from models.movie import Movie as MovieModel
 from fastapi.encoders import jsonable_encoder
+from middlewares.error_handler import ErrorHandler
+from middlewares.jwt_bearer import JWTBearer
+
 
 app = FastAPI()
-
+#https://fastapi.tiangolo.com/es/
 #Documentacion con swagger
 app.title = "Mi app con fastapi"
 app.version = "0.0.1"
 
+app.add_middleware(ErrorHandler)
 
 Base.metadata.create_all(bind=engine)
 
-
-class JWTBearer(HTTPBearer):
-    async def __call__(self, request: Request):
-        auth = await super().__call__(request)
-        data = validate_token(auth.credentials)
-        print("Holaa", auth,data)
-        if data['email'] != "admin@gmail.com":
-            raise HTTPException(status_code=403, detail="Credenciales son invalidas")
 
 class User(BaseModel):
     email:str
